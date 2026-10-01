@@ -267,6 +267,10 @@ void BattleSubscreen_SetBallStatus(BattleSubscreen *btlSubscreen, u8 playerBallS
 void BattleSubscreen_ShowBallSprites(BattleSubscreen *btlSubscreen);
 void BattleSubscreen_HideBallSprites(BattleSubscreen *btlSubscreen);
 int BattleSystem_MenuInput(BattleSubscreen *btlSubscreen);
+#ifdef SINGLE_SCREEN
+MenuCursor *BattleSystem_GetCursor(BattleSubscreen *btlSubscreen);
+void BattleSystem_PrintMoveInfo_SS(BattleSubscreen *btlSubscreen, int battlerSlot, const MoveDisplayInfo *moveDisplayInfo, Window *window, u8 cursorPos);
+#endif
 BOOL BattleSubscreen_IsReady(BattleSubscreen *btlSubscreen);
 int GetTargetSelectLayout(int range, int battlerType);
 void BattleSubscreen_UpdateSlideWindow(BattleSubscreen *btlSubscreen);

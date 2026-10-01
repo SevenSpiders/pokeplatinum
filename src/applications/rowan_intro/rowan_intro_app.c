@@ -2215,7 +2215,11 @@ static BOOL RowanIntro_Run(RowanIntro *manager)
         break;
     case RI_STATE_CONTROL_INFO_WAIT_INPUT:
         if (gSystem.pressedKeys) {
+#ifdef SINGLE_SCREEN
+            manager->state = RI_STATE_CONTROL_INFO_FADE_OUT_START;
+#else
             manager->state = RI_STATE_CONTROL_INFO_DIALOGUE_USE_TOUCHSCREEN;
+#endif
             break;
         }
 
@@ -2433,7 +2437,11 @@ static BOOL RowanIntro_Run(RowanIntro *manager)
             }
             manager->state = RI_STATE_PKBL_ANIM_PUSH_IN;
         } else if (gSystem.pressedKeys) {
+#ifdef SINGLE_SCREEN
+            manager->state = RI_STATE_PKBL_ANIM_PUSH_IN;
+#else
             manager->state = RI_STATE_PKBL_DIALOGUE_USE_TOUCHSCREEN;
+#endif
         }
         break;
     case RI_STATE_PKBL_ANIM_PUSH_IN:

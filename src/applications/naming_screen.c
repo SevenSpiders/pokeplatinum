@@ -1132,7 +1132,11 @@ static BOOL NamingScreen_Init(ApplicationManager *appMan, int *state)
             HEAP_ID_NAMING_SCREEN_APP);
         NamingScreen_ToggleEngineLayers(TRUE);
 
+#ifdef SINGLE_SCREEN
+        gSystem.whichScreenIs3D = DS_SCREEN_MAIN;
+#else
         gSystem.whichScreenIs3D = DS_SCREEN_SUB;
+#endif
         GXLayers_SwapDisplay();
 
         NARC_dtor(narc);

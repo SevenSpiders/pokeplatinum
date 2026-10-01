@@ -58,6 +58,7 @@
 #include "flags.h"
 #include "heap.h"
 #include "item.h"
+#include "menu.h"
 #include "message.h"
 #include "move_table.h"
 #include "narc.h"
@@ -3173,6 +3174,10 @@ static void Task_PlayerSetCommandSelection(SysTask *task, void *data)
     u32 battleType = BattleSystem_GetBattleType(commandSetData->battleSys);
     int partner = BattleSystem_GetPartner(commandSetData->battleSys, commandSetData->battler);
     HealthBox *healthbox;
+#ifdef SINGLE_SCREEN
+    Window *window = BattleSystem_GetWindow(commandSetData->battleSys, 1);
+    PaletteData *paletteSys = BattleSystem_GetPaletteData(commandSetData->battleSys);
+#endif
 
     if (partner != commandSetData->battler) {
         healthbox = BattleSystem_GetHealthBox(commandSetData->battleSys, partner);
@@ -3303,6 +3308,17 @@ static void Task_PlayerSetCommandSelection(SysTask *task, void *data)
         }
 
         commandSetData->state = 5;
+#ifdef SINGLE_SCREEN
+        G2_SetBG0Priority(2);
+        Bg_SetPriority(BG_LAYER_MAIN_1, 1);
+        Bg_SetPriority(BG_LAYER_MAIN_2, 0);
+
+        LoadStandardWindowTiles(bgConfig, 2, 1, 0, HEAP_ID_BATTLE);
+        PaletteData_LoadBufferFromFileStart(paletteSys, NARC_INDEX_GRAPHIC__PL_WINFRAME, GetStandardWindowPaletteNARCMember(), HEAP_ID_BATTLE, 0, 0x20, 8 * 0x10);
+        Window_Add(bgConfig, window, 2, 0x13, 0x13, 12, 4, 11, (9 + 1));
+        Window_FillTilemap(window, 0xFF);
+        Window_DrawStandardFrame(window, 0, 1, 8);
+#endif
         break;
     case 5:
         if (gSystem.pressedKeys & PAD_BUTTON_START) {
@@ -3314,12 +3330,36 @@ static void Task_PlayerSetCommandSelection(SysTask *task, void *data)
             }
         }
 
+#ifdef SINGLE_SCREEN
+        {
+            MenuCursor *cursor = BattleSystem_GetCursor(btlSubscreen);
+            Window_FillRectWithColor(window, 15, (cursor->x << 6), (cursor->y << 4), 8, 16);
+        }
+#endif
         commandSetData->input = BattleSystem_MenuInput(btlSubscreen);
 
         if (commandSetData->input != 0xFFFFFFFF) {
             commandSetData->unused_0B = 10; // set but never used
             Sound_PlayEffect(SEQ_SE_DP_DECIDE_sseq);
             commandSetData->state = 6;
+#ifdef SINGLE_SCREEN
+        } else {
+            MenuCursor *cursor = BattleSystem_GetCursor(btlSubscreen);
+            BattleMessage msg;
+            MessageLoader *msgLoader = BattleSystem_GetMessageLoader(commandSetData->battleSys);
+
+            Window_DrawMenuCursor(window, (cursor->x << 6), (cursor->y << 4));
+
+            msg.tags = TAG_NONE;
+            msg.id = BattleStrings_Text_Fight;
+            BattleMessage_PrintToWindow(commandSetData->battleSys, window, msgLoader, &msg, 8, 0, 0, 0, 0);
+            msg.id = BattleStrings_Text_Bag;
+            BattleMessage_PrintToWindow(commandSetData->battleSys, window, msgLoader, &msg, 72, 0, 0, 0, 0);
+            msg.id = BattleStrings_Text_Pokemon;
+            BattleMessage_PrintToWindow(commandSetData->battleSys, window, msgLoader, &msg, 8, 16, 0, 0, 0);
+            msg.id = BattleStrings_Text_Run;
+            BattleMessage_PrintToWindow(commandSetData->battleSys, window, msgLoader, &msg, 72, 16, 0, 0, 0);
+#endif
         }
         break;
     case 6:
@@ -3396,6 +3436,14 @@ static void Task_PlayerSetCommandSelection(SysTask *task, void *data)
         break;
     case 8:
         if (useless_0226BCD0(btlSubscreen) == 1) {
+#ifdef SINGLE_SCREEN
+            Window_EraseStandardFrame(window, 0);
+            Window_Remove(window);
+
+            G2_SetBG0Priority(1);
+            Bg_SetPriority(BG_LAYER_MAIN_1, 0);
+            Bg_SetPriority(BG_LAYER_MAIN_2, 1);
+#endif
             BattleController_EmitSelectedCommand(commandSetData->battleSys, commandSetData->battler, commandSetData->input);
             BattleController_EmitClearCommand(commandSetData->battleSys, commandSetData->battler, commandSetData->command);
             Heap_Free(data);
@@ -3502,6 +3550,10 @@ static void Task_PlayerShowMoveSelectMenu(SysTask *task, void *data)
     BattleSubscreen *btlSubscreen = BattleSystem_GetBattleSubscreen(moveSelectMenuData->battleSys);
     BattlerData *battlerData = BattleSystem_GetBattlerData(moveSelectMenuData->battleSys, moveSelectMenuData->battler);
     int partner = BattleSystem_GetPartner(moveSelectMenuData->battleSys, moveSelectMenuData->battler);
+#ifdef SINGLE_SCREEN
+    Window *window = BattleSystem_GetWindow(moveSelectMenuData->battleSys, 1);
+    PaletteData *paletteSys = BattleSystem_GetPaletteData(moveSelectMenuData->battleSys);
+#endif
 
     if (partner != moveSelectMenuData->battler) {
         healthbox = BattleSystem_GetHealthBox(moveSelectMenuData->battleSys, partner);
@@ -3542,13 +3594,48 @@ static void Task_PlayerShowMoveSelectMenu(SysTask *task, void *data)
         NARC_dtor(bgNarc);
         NARC_dtor(objNarc);
         moveSelectMenuData->state++;
+#ifdef SINGLE_SCREEN
+        G2_SetBG0Priority(2);
+        Bg_SetPriority(BG_LAYER_MAIN_1, 1);
+        Bg_SetPriority(BG_LAYER_MAIN_2, 0);
+
+        LoadStandardWindowTiles(bgConfig, 2, 1, 0, HEAP_ID_BATTLE);
+        PaletteData_LoadBufferFromFileStart(paletteSys, NARC_INDEX_GRAPHIC__PL_WINFRAME, GetStandardWindowPaletteNARCMember(), HEAP_ID_BATTLE, 0, 0x20, 8 * 0x10);
+        Window_Add(bgConfig, window, 2, 1, 0x13, 30, 4, 11, (9 + 1));
+        Window_FillTilemap(window, 0xFF);
+        Window_DrawStandardFrame(window, 0, 1, 8);
+#endif
         break;
     case 1:
+#ifdef SINGLE_SCREEN
+        {
+            MenuCursor *cursor = BattleSystem_GetCursor(btlSubscreen);
+            Window_FillRectWithColor(window, 15, (cursor->x * 96), (cursor->y << 4), 8, 16);
+            Window_FillRectWithColor(window, 15, 194, 0, 46, 32);
+        }
+#endif
         moveSelectMenuData->input = BattleSystem_MenuInput(btlSubscreen);
 
         if (moveSelectMenuData->input != 0xFFFFFFFF) {
             Sound_PlayEffect(SEQ_SE_DP_DECIDE_sseq);
             moveSelectMenuData->state++;
+#ifdef SINGLE_SCREEN
+        } else {
+            MenuCursor *cursor = BattleSystem_GetCursor(btlSubscreen);
+            u8 cursorPosNew = cursor->x + (cursor->y << 1);
+            MoveDisplayInfo moveDisplayInfo;
+
+            Window_DrawMenuCursor(window, (cursor->x * 96), (cursor->y << 4));
+
+            for (int i = 0; i < LEARNED_MOVES_MAX; i++) {
+                moveDisplayInfo.move[i] = moveSelectMenuData->moves[i];
+                moveDisplayInfo.curPP[i] = moveSelectMenuData->ppCur[i];
+                moveDisplayInfo.maxPP[i] = moveSelectMenuData->ppMax[i];
+            }
+
+            BattleSystem_PrintMoveInfo_SS(btlSubscreen, moveSelectMenuData->battlerType, &moveDisplayInfo, window, cursorPosNew);
+            Window_ScheduleCopyToVRAM(window);
+#endif
         }
         break;
     case 2:
@@ -3568,6 +3655,14 @@ static void Task_PlayerShowMoveSelectMenu(SysTask *task, void *data)
         moveSelectMenuData->state++;
     default:
         if (useless_0226BCD0(btlSubscreen) == 1) {
+#ifdef SINGLE_SCREEN
+            Window_EraseStandardFrame(window, 0);
+            Window_Remove(window);
+
+            G2_SetBG0Priority(1);
+            Bg_SetPriority(BG_LAYER_MAIN_1, 0);
+            Bg_SetPriority(BG_LAYER_MAIN_2, 1);
+#endif
             BattleSystem_SetCatchingTutorialLowHP(moveSelectMenuData->battleSys, TRUE);
             BattleController_EmitClearCommand(moveSelectMenuData->battleSys, moveSelectMenuData->battler, moveSelectMenuData->command);
             Heap_Free(data);
@@ -3821,6 +3916,9 @@ static void Task_PlayerShowBagMenu(SysTask *task, void *data)
 
     switch (bagMenuData->state) {
     case 0:
+#ifdef SINGLE_SCREEN
+        GX_SetDispSelect(GX_DISP_SELECT_SUB_MAIN);
+#endif
         bagMenuData->isCursorEnabled = BattleSubscreen_GetSuppressActivationSFX(BattleSystem_GetBattleSubscreen(bagMenuData->battleSys));
         sub_02015738(BattleSystem_GetPaletteAnimator(bagMenuData->battleSys), 1);
         PaletteData_StartFade(paletteData, PLTTBUF_MAIN_BG_F | PLTTBUF_MAIN_OBJ_F, 0xC00, -8, 0, 7, 0);
@@ -4040,6 +4138,9 @@ static void Task_PlayerShowBagMenu(SysTask *task, void *data)
         Heap_Free(bagMenuData->battleBagCtx);
         Heap_Free(data);
         SysTask_Done(task);
+#ifdef SINGLE_SCREEN
+        GX_SetDispSelect(GX_DISP_SELECT_MAIN_SUB);
+#endif
         break;
     case 9:
         BattleMessage battleMsg;
@@ -4385,10 +4486,15 @@ static void Task_PlayerShowPartyMenu(SysTask *task, void *data)
 
     switch (partyMenuData->state) {
     case 0:
-        Window *window = BattleSystem_GetWindow(partyMenuData->battleSys, 0);
+#ifdef SINGLE_SCREEN
+        GX_SetDispSelect(GX_DISP_SELECT_SUB_MAIN);
+#endif
+        {
+            Window *window = BattleSystem_GetWindow(partyMenuData->battleSys, 0);
 
-        Window_FillTilemap(window, 0xFF);
-        Window_LoadTiles(window);
+            Window_FillTilemap(window, 0xFF);
+            Window_LoadTiles(window);
+        }
 
         partyMenuData->isCursorEnabled = BattleSubscreen_GetSuppressActivationSFX(BattleSystem_GetBattleSubscreen(partyMenuData->battleSys));
         sub_02015738(BattleSystem_GetPaletteAnimator(partyMenuData->battleSys), 1);
@@ -4520,6 +4626,9 @@ static void Task_PlayerShowPartyMenu(SysTask *task, void *data)
             Heap_Free(partyMenuData->battlePartyCtx);
             Heap_Free(data);
             SysTask_Done(task);
+#ifdef SINGLE_SCREEN
+            GX_SetDispSelect(GX_DISP_SELECT_MAIN_SUB);
+#endif
         }
         break;
     }

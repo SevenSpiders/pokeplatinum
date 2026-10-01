@@ -263,10 +263,17 @@ __attribute__((aligned(4))) static const u8 Unused_ov16_02270A08[NELEMS(sActionM
     0x4
 };
 
+#ifdef SINGLE_SCREEN
+__attribute__((aligned(4))) static const u8 sBattleMenuButtonLayout[2][2] = {
+    { 0x0, 0x1 },
+    { 0x2, 0x3 }
+};
+#else
 __attribute__((aligned(4))) static const u8 sBattleMenuButtonLayout[2][3] = {
     { 0x0, 0x0, 0x0 },
     { 0x1, 0x3, 0x2 }
 };
+#endif
 
 static const TouchScreenRect sFirstBattleMenuTouchRects[] = {
     { 0x18, 0x90, 0x0, 0xFF },
@@ -319,11 +326,18 @@ __attribute__((aligned(4))) static const u8 sMoveSelectButtonSlots[NELEMS(sMoveS
     0xB
 };
 
+#ifdef SINGLE_SCREEN
+__attribute__((aligned(4))) static const u8 sMoveMenuButtonLayout[2][2] = {
+    { 0x1, 0x2 },
+    { 0x3, 0x4 }
+};
+#else
 __attribute__((aligned(4))) static const u8 sMoveMenuButtonLayout[3][2] = {
     { 0x1, 0x2 },
     { 0x3, 0x4 },
     { 0x0, 0x0 }
 };
+#endif
 
 static const TouchScreenRect sYesNoMenuTouchRects[] = {
     { 0x28, 0x60, 0x8, 0xF8 },
@@ -1272,6 +1286,13 @@ void BattleSubscreen_HideBallSprites(BattleSubscreen *btlSubscreen)
     }
 }
 
+#ifdef SINGLE_SCREEN
+MenuCursor *BattleSystem_GetCursor(BattleSubscreen *btlSubscreen)
+{
+    return &btlSubscreen->cursor;
+}
+#endif
+
 int BattleSystem_MenuInput(BattleSubscreen *btlSubscreen)
 {
     int isKeyInput = 0;
@@ -1292,7 +1313,7 @@ int BattleSystem_MenuInput(BattleSubscreen *btlSubscreen)
     } else {
         buttonIndex = TouchScreen_CheckRectanglePressed(battleMenuConfig->touchScreenRects);
 
-        if (buttonIndex == TOUCHSCREEN_INPUT_NONE) {
+        if (buttonIndex == TOUCHSCREEN_INPUT_NONE) { // Nothing was selected with touch
             buttonIndex = BattleSystem_MenuKeys(btlSubscreen);
             isKeyInput++;
         }
@@ -2417,6 +2438,56 @@ void BattleSubscreen_UpdateMoveDisplay(BattleSubscreen *btlSubscreen, int battle
     moveDisplayData->moveDisplayInfo = *moveDisplayInfo;
 }
 
+#ifdef SINGLE_SCREEN
+void BattleSystem_PrintMoveInfo_SS(BattleSubscreen *btlSubscreen, int battlerSlot, const MoveDisplayInfo *moveDisplayInfo, Window *window, u8 cursorPos)
+{
+    int i;
+    int x = 6;
+    int y = 0;
+    String *moveName;
+    String *ppCountMsg;
+    String *curPPOutOfMaxPPMsg;
+    String *PPMsg;
+    StringTemplate *strTemplate;
+    TextColor ppTextColor;
+    MessageLoader *msgLoader = BattleSystem_GetMessageLoader(btlSubscreen->battleSys);
+
+    (void)battlerSlot;
+
+    PPMsg = MessageLoader_GetNewString(msgLoader, BattleStrings_Text_PP);
+    strTemplate = BattleSystem_GetStringTemplate(btlSubscreen->battleSys);
+    ppCountMsg = String_Init((2 + 2 + 1 + 2) * 2 + 2, HEAP_ID_BATTLE);
+    curPPOutOfMaxPPMsg = MessageLoader_GetNewString(msgLoader, BattleStrings_Text_CurPPOutOfMaxPP);
+
+    for (i = 0; i < LEARNED_MOVES_MAX; i++) {
+        moveName = MessageUtil_MoveName(moveDisplayInfo->move[i], HEAP_ID_BATTLE);
+        Text_AddPrinterWithParams(window, FONT_SYSTEM, moveName, x, y, TEXT_SPEED_NO_TRANSFER, NULL);
+        String_Free(moveName);
+
+        if (i & 1) {
+            x -= 96;
+            y += 16;
+        } else {
+            x += 96;
+        }
+    }
+
+    if (cursorPos < LEARNED_MOVES_MAX && moveDisplayInfo->move[cursorPos] != 0) {
+        StringTemplate_SetNumber(strTemplate, 0, moveDisplayInfo->curPP[cursorPos], 2, 1, 0);
+        StringTemplate_SetNumber(strTemplate, 1, moveDisplayInfo->maxPP[cursorPos], 2, 1, 0);
+        StringTemplate_Format(strTemplate, ppCountMsg, curPPOutOfMaxPPMsg);
+
+        ppTextColor = GetPPTextColor(moveDisplayInfo->curPP[cursorPos], moveDisplayInfo->maxPP[cursorPos]);
+        Text_AddPrinterWithParamsAndColor(window, FONT_SYSTEM, ppCountMsg, 206, 16, TEXT_SPEED_NO_TRANSFER, ppTextColor, NULL);
+        Text_AddPrinterWithParams(window, FONT_SYSTEM, PPMsg, 194, 16, TEXT_SPEED_NO_TRANSFER, NULL);
+    }
+
+    String_Free(PPMsg);
+    String_Free(curPPOutOfMaxPPMsg);
+    String_Free(ppCountMsg);
+}
+#endif
+
 static void PrepareTextWindow(BattleSubscreen *btlSubscreen, const String *str, enum Font font, TextWindowLayout *textLayout, TextColor textColor)
 {
     int height, width;
@@ -3165,6 +3236,10 @@ static int BattleSystem_MenuKeys(BattleSubscreen *btlSubscreen)
     }
 
     if (!cursor->isActive) { // Check if the cursor is inactive
+#ifdef SINGLE_SCREEN
+        cursor->isActive = TRUE; // Activate the cursor
+        return battleMenuConfig->handleCursorInput(btlSubscreen, TRUE);
+#endif
         if (btlSubscreen->suppressActivationSfx == TRUE || gSystem.pressedKeys & (PAD_BUTTON_A | PAD_BUTTON_B | PAD_BUTTON_X | PAD_BUTTON_Y | PAD_KEY_RIGHT | PAD_KEY_LEFT | PAD_KEY_UP | PAD_KEY_DOWN)) {
             if (btlSubscreen->suppressActivationSfx == 0) { // If a key was pressed, play sfx
                 Sound_PlayEffect(SE_CONFIRM_sseq_3);
@@ -3208,7 +3283,10 @@ static int BattleSystem_Cursor_Menu(BattleSubscreen *btlSubscreen, BOOL cursorHi
         break;
     default: // normal fight menu, with bag, run and pokemon
         buttonId = sBattleMenuButtonLayout[cursor->y][cursor->x];
-
+#ifdef SINGLE_SCREEN
+        button = BattleSystem_MoveCursor(cursor, 2, 2, sBattleMenuButtonLayout[0]);
+        break;
+#endif
         if (!(buttonId == 3 && gSystem.pressedKeys & PAD_KEY_UP)) {
             button = BattleSystem_MoveCursor(cursor, 3, 2, sBattleMenuButtonLayout[0]); // temporarily set button to the id of the new button
 
@@ -3336,8 +3414,13 @@ static int BattleSystem_Cursor_Moves(BattleSubscreen *btlSubscreen, BOOL cursorH
         return 0xffffffff;
     }
 
+#ifdef SINGLE_SCREEN
+    MI_CpuCopy8(sMoveMenuButtonLayout, buttonLayout, 2 * 2);
+    button = BattleSystem_MoveCursor(cursor, 2, 2, buttonLayout[0]);
+#else
     MI_CpuCopy8(sMoveMenuButtonLayout, buttonLayout, 3 * 2);
     button = BattleSystem_MoveCursor(cursor, 2, 3, buttonLayout[0]);
+#endif
 
     switch (button) {
     case PAD_KEY_UP:
